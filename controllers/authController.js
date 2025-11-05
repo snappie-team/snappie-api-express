@@ -21,7 +21,7 @@ const register = async (req, res) => {
       });
     }
 
-    const { name, username, email, imageUrl } = req.body;
+    const { name, username, email, imageUrl, gender, place_value, food_type } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -49,27 +49,24 @@ const register = async (req, res) => {
       email: email.toLowerCase(),
       imageUrl: imageUrl || 'https://via.placeholder.com/150',
       additionalInfo: {
-        userDetail: {
-          bio: '',
-          gender: '',
-          dateOfBirth: '',
-          phone: ''
+        user_detail: {
+          gender: gender || '',
         },
-        userPreferences: {
-          foodType: '',
-          placeValue: ''
+        user_preferences: {
+          food_type: food_type || '',
+          place_value: place_value || ''
         },
-        userSaved: {
-          savedPlaces: [],
-          savedPosts: [],
-          savedArticles: []
+        user_saved: {
+          saved_places: [],
+          saved_posts: [],
+          saved_articles: []
         },
-        userSettings: {
+        user_settings: {
           language: 'id',
           theme: 'light'
         },
-        userNotification: {
-          pushNotification: true
+        user_notification: {
+          push_notification: true
         }
       }
     });
