@@ -134,30 +134,6 @@ User.init({
   additionalInfo: {
     type: DataTypes.JSONB,
     allowNull: true,
-    defaultValue: {
-      userDetail: {
-        bio: '',
-        gender: '',
-        dateOfBirth: '',
-        phone: ''
-      },
-      userPreferences: {
-        foodType: '',
-        placeValue: ''
-      },
-      userSaved: {
-        savedPlaces: [],
-        savedPosts: [],
-        savedArticles: []
-      },
-      userSettings: {
-        language: 'id',
-        theme: 'light'
-      },
-      userNotification: {
-        pushNotification: true
-      }
-    },
     field: 'additional_info'
   }
 }, {
@@ -175,26 +151,88 @@ User.init({
     {
       unique: true,
       fields: ['username']
-    },
-    {
-      fields: ['name']
-    },
-    {
-      fields: ['status']
-    },
-    {
-      fields: ['total_coin']
-    },
-    {
-      fields: ['total_exp']
-    },
-    {
-      fields: ['last_login_at']
-    },
-    {
-      fields: ['created_at']
     }
   ]
 });
+
+// Associations
+User.associate = (models) => {
+  // Articles
+  User.hasMany(models.Article, {
+    foreignKey: 'user_id',
+    as: 'articles'
+  });
+  
+  // Posts
+  User.hasMany(models.Post, {
+    foreignKey: 'user_id',
+    as: 'posts'
+  });
+  
+  // Reviews
+  User.hasMany(models.Review, {
+    foreignKey: 'user_id',
+    as: 'reviews'
+  });
+  
+  // Checkins
+  User.hasMany(models.Checkin, {
+    foreignKey: 'user_id',
+    as: 'checkins'
+  });
+  
+  // Followers (users who follow this user)
+  User.hasMany(models.UserFollow, {
+    foreignKey: 'following_id',
+    as: 'followers'
+  });
+  
+  // Following (users this user follows)
+  User.hasMany(models.UserFollow, {
+    foreignKey: 'follower_id',
+    as: 'following'
+  });
+  
+  // Likes
+  User.hasMany(models.UserLike, {
+    foreignKey: 'user_id',
+    as: 'likes'
+  });
+  
+  // Comments
+  User.hasMany(models.UserComment, {
+    foreignKey: 'user_id',
+    as: 'comments'
+  });
+  
+  // Transactions
+  User.hasMany(models.CoinTransaction, {
+    foreignKey: 'user_id',
+    as: 'coinTransactions'
+  });
+  
+  User.hasMany(models.ExpTransaction, {
+    foreignKey: 'user_id',
+    as: 'expTransactions'
+  });
+  
+  // Achievements
+  User.hasMany(models.UserAchievement, {
+    foreignKey: 'user_id',
+    as: 'achievements'
+  });
+  
+  // Challenges
+  User.hasMany(models.UserChallenge, {
+    foreignKey: 'user_id',
+    as: 'challenges'
+  });
+  
+  // Rewards
+  User.hasMany(models.UserReward, {
+    foreignKey: 'user_id',
+    as: 'rewards'
+  });
+};
 
 module.exports = User;

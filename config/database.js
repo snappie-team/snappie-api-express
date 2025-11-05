@@ -30,11 +30,9 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log('✅ PostgreSQL connected successfully');
     
-    // Sync database (create tables if they don't exist)
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: false });
-      console.log('✅ Database synchronized');
-    }
+    // Use existing database structure without syncing
+    // await sequelize.sync({ alter: true });
+    console.log('✅ Using existing database structure');
   } catch (error) {
     console.error('❌ Unable to connect to PostgreSQL database:', error.message);
     console.log('⚠️  Server will continue running without database connection');
