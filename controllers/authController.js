@@ -75,18 +75,14 @@ const register = async (req, res) => {
     });
 
     // Generate tokens
-    const accessToken = generateAccessToken(newUser);
-    const refreshToken = generateRefreshToken(newUser);
+    // const accessToken = generateAccessToken(newUser);
+    // const refreshToken = generateRefreshToken(newUser);
 
     res.status(201).json({
       success: true,
       message: 'User berhasil didaftarkan',
       data: {
         user: newUser.getProfile(),
-        tokens: {
-          accessToken,
-          refreshToken
-        }
       }
     });
 
@@ -145,48 +141,11 @@ const login = async (req, res) => {
       where: { email: email.toLowerCase() }
     });
 
-    // If user doesn't exist, create new user (auto-registration for social login)
+    // If user doesn't exist, return error
     if (!user) {
-      // Generate username from email
-      const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
-      let username = baseUsername;
-      let counter = 1;
-
-      // Ensure username is unique
-      while (await User.findOne({ where: { username } })) {
-        username = `${baseUsername}${counter}`;
-        counter++;
-      }
-
-      user = await User.create({
-        name: name || 'User',
-        username,
-        email: email.toLowerCase(),
-        imageUrl: imageUrl || 'https://via.placeholder.com/150',
-        additionalInfo: {
-          userDetail: {
-            bio: '',
-            gender: '',
-            dateOfBirth: '',
-            phone: ''
-          },
-          userPreferences: {
-            foodType: '',
-            placeValue: ''
-          },
-          userSaved: {
-            savedPlaces: [],
-            savedPosts: [],
-            savedArticles: []
-          },
-          userSettings: {
-            language: 'id',
-            theme: 'light'
-          },
-          userNotification: {
-            pushNotification: true
-          }
-        }
+      return res.status(404).json({
+        success: false,
+        message: 'User tidak ditemukan. Silakan registrasi terlebih dahulu.'
       });
     } else {
       // Update user info if provided
@@ -212,17 +171,14 @@ const login = async (req, res) => {
 
     // Generate tokens
     const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    // const refreshToken = generateRefreshToken(user);
 
     res.json({
       success: true,
       message: 'Login berhasil',
       data: {
         user: user.getProfile(),
-        tokens: {
-          accessToken,
-          refreshToken
-        }
+        token: accessToken
       }
     });
 

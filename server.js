@@ -6,6 +6,9 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { connectDB } = require('./config/database');
 
+// Initialize models and associations
+require('./models');
+
 // Import routes
 // const authRoutes = require('./routes/auth');
 // const healthRoutes = require('./routes/health');
@@ -44,12 +47,21 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static file serving for uploaded images
+app.use('/uploads', express.static('uploads'));
+
 // API routes
 const API_PREFIX = '/api/v1';
 
 app.use(`${API_PREFIX}/health`, require('./routes/health'));
 app.use(`${API_PREFIX}/auth`, require('./routes/auth'));
 app.use(`${API_PREFIX}/places`, require('./routes/places'));
+app.use(`${API_PREFIX}/articles`, require('./routes/articles'));
+app.use(`${API_PREFIX}/users`, require('./routes/users'));
+app.use(`${API_PREFIX}/gamification`, require('./routes/gamification'));
+app.use(`${API_PREFIX}/social`, require('./routes/social'));
+app.use(`${API_PREFIX}/leaderboard`, require('./routes/leaderboard'));
+app.use(`${API_PREFIX}/upload`, require('./routes/upload'));
 
 // Root endpoint
 app.get('/', (req, res) => {

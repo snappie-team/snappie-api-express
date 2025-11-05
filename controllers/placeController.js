@@ -1,486 +1,163 @@
-const Place = require('../models/Place');
-const { validationResult } = require('express-validator');
-const { Op } = require('sequelize');
+const PlaceService = require('../services/PlaceService');
+const { validateId } = require('../utils/validation');
 
 /**
- * Get all places with pagination and filtering
+ * Get paginated places with optional filters
  * @route GET /api/v1/places
- * @access Public
+ * @access Protected
  */
-const getAllPlaces = async (req, res) => {
+const getWithFilters = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      search,
-      status,
-      partnership_status,
-      min_rating,
-      max_rating,
-      min_price,
-      max_price,
-      latitude,
-      longitude,
-      radius = 5
-    } = req.query;
+    const perPage = parseInt(req.query.per_page) || 10;
 
-    const offset = (page - 1) * limit;
-    const whereClause = {};
+    let places;
 
-    // Apply filters
-    if (search) {
-      whereClause.name = {
-        [Op.iLike]: `%${search}%`
-      };
+    // Build filters conditionally (only include active ones)
+    const filters = {};
+    if (req.query.search) filters.search = String(req.query.search);
+    if (req.query.min_rating) filters.minRating = parseFloat(req.query.min_rating);
+    if (req.query.min_price && req.query.max_price) {
+      filters.minPrice = parseInt(req.query.min_price);
+      filters.maxPrice = parseInt(req.query.max_price);
     }
-
-    if (status !== undefined) {
-      whereClause.status = status === 'true';
+    if (req.query.partner !== undefined) filters.partnershipStatus = req.query.partner;
+    if (req.query.active_only !== undefined) filters.status = req.query.active_only;
+    if (req.query.latitude && req.query.longitude && req.query.radius) {
+      filters.latitude = req.query.latitude;
+      filters.longitude = req.query.longitude;
+      filters.radius = req.query.radius;
     }
-
-    if (partnership_status !== undefined) {
-      whereClause.partnershipStatus = partnership_status === 'true';
+    if (req.query.page) filters.page = parseInt(req.query.page);
+    if (Array.isArray(req.query.food_type)) {
+      if (req.query.food_type.length > 0) filters.foodType = req.query.food_type;
+    } else if (req.query.food_type) {
+      const arr = String(req.query.food_type).split(',').filter(Boolean);
+      if (arr.length > 0) filters.foodType = arr;
     }
-
-    if (min_rating) {
-      whereClause.avgRating = {
-        ...whereClause.avgRating,
-        [Op.gte]: parseFloat(min_rating)
-      };
+    if (Array.isArray(req.query.place_value)) {
+      if (req.query.place_value.length > 0) filters.placeValue = req.query.place_value;
+    } else if (req.query.place_value) {
+      const arr = String(req.query.place_value).split(',').filter(Boolean);
+      if (arr.length > 0) filters.placeValue = arr;
     }
-
-    if (max_rating) {
-      whereClause.avgRating = {
-        ...whereClause.avgRating,
-        [Op.lte]: parseFloat(max_rating)
-      };
-    }
-
-    if (min_price) {
-      whereClause.minPrice = {
-        ...whereClause.minPrice,
-        [Op.gte]: parseInt(min_price)
-      };
-    }
-
-    if (max_price) {
-      whereClause.maxPrice = {
-        ...whereClause.maxPrice,
-        [Op.lte]: parseInt(max_price)
-      };
-    }
-
-    let orderClause = [['createdAt', 'DESC']];
-
-    // If location is provided, order by distance
-    if (latitude && longitude) {
-      const { sequelize } = require('../config/database');
-      orderClause = [
-        sequelize.literal(`
-          ST_Distance(
-            ST_MakePoint(longitude, latitude)::geography,
-            ST_MakePoint(${longitude}, ${latitude})::geography
-          )
-        `)
-      ];
-
-      // Add radius filter if location is provided
-      if (radius) {
-        const { sequelize: seq } = require('../config/database');
-        whereClause[Op.and] = seq.literal(`
-          ST_DWithin(
-            ST_MakePoint(longitude, latitude)::geography,
-            ST_MakePoint(${longitude}, ${latitude})::geography,
-            ${radius * 1000}
-          )
-        `);
-      }
-    }
-
-    const { count, rows: places } = await Place.findAndCountAll({
-      where: whereClause,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      order: orderClause
-    });
-
-    const totalPages = Math.ceil(count / limit);
+    
+    places = await PlaceService.getWithMultipleFilters(filters, perPage);
 
     res.status(200).json({
       success: true,
       message: 'Places retrieved successfully',
-      data: {
-        places,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems: count,
-          itemsPerPage: parseInt(limit),
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1
-        }
+      data: places.data,
+      active_filters: filters,
+      pagination: {
+        current_page: places.current_page,
+        per_page: places.per_page,
+        total: places.total,
+        last_page: places.last_page
       }
     });
   } catch (error) {
-    console.error('Get all places error:', error);
+    console.error('Error in index:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Failed to retrieve places',
+      error: error.message
     });
   }
 };
 
 /**
- * Get place by ID
- * @route GET /api/v1/places/:id
- * @access Public
+ * Get a specific place by ID
+ * @route GET /api/v1/places/:place_id
+ * @access Protected
  */
-const getPlaceById = async (req, res) => {
+const getById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const validation = validateId(req.params.place_id);
 
-    const place = await Place.findByPk(id);
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid place ID'
+      });
+    }
+
+    const place = await PlaceService.getById(validation.id);
 
     if (!place) {
       return res.status(404).json({
         success: false,
-        message: 'Place tidak ditemukan'
+        message: 'Place not found'
       });
     }
 
     res.status(200).json({
       success: true,
       message: 'Place retrieved successfully',
-      data: {
-        place
-      }
+      data: place
     });
   } catch (error) {
-    console.error('Get place by ID error:', error);
+    console.error('Error in show:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Failed to retrieve place',
+      error: error.message
     });
   }
 };
 
-/**
- * Create new place
- * @route POST /api/v1/places
- * @access Private (Admin only)
- */
-const createPlace = async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const {
-      name,
-      description,
-      latitude,
-      longitude,
-      imageUrls,
-      coinReward,
-      expReward,
-      minPrice,
-      maxPrice,
-      status,
-      partnershipStatus,
-      additionalInfo
-    } = req.body;
-
-    // Check if place with same name already exists
-    const existingPlace = await Place.findOne({
-      where: {
-        name: {
-          [Op.iLike]: name
-        }
-      }
-    });
-
-    if (existingPlace) {
-      return res.status(409).json({
-        success: false,
-        message: 'Place dengan nama tersebut sudah ada'
-      });
-    }
-
-    // Create new place
-    const newPlace = await Place.create({
-      name,
-      description,
-      latitude,
-      longitude,
-      imageUrls: imageUrls || [],
-      coinReward: coinReward || 0,
-      expReward: expReward || 0,
-      minPrice: minPrice || 0,
-      maxPrice: maxPrice || 0,
-      status: status !== undefined ? status : true,
-      partnershipStatus: partnershipStatus || false,
-      additionalInfo: additionalInfo || {}
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Place berhasil dibuat',
-      data: {
-        place: newPlace
-      }
-    });
-  } catch (error) {
-    console.error('Create place error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server'
-    });
-  }
-};
 
 /**
- * Update place
- * @route PUT /api/v1/places/:id
- * @access Private (Admin only)
+ * Get reviews by place ID
+ * @route GET /api/v1/places/id/:place_id/reviews
+ * @access Protected
  */
-const updatePlace = async (req, res) => {
+const getReviewsByPlaceId = async (req, res) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
+    const validation = validateId(req.params.place_id);
+
+    if (!validation.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: errors.array()
+        message: 'Invalid place ID'
       });
     }
 
-    const { id } = req.params;
-    const {
-      name,
-      description,
-      latitude,
-      longitude,
-      imageUrls,
-      coinReward,
-      expReward,
-      minPrice,
-      maxPrice,
-      status,
-      partnershipStatus,
-      additionalInfo
-    } = req.body;
+    // Extract pagination and sorting options from query params
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const sortBy = req.query.sort_by || 'created_at';
+    const sortOrder = req.query.sort_order || 'DESC';
 
-    // Find place
-    const place = await Place.findByPk(id);
-
-    if (!place) {
-      return res.status(404).json({
-        success: false,
-        message: 'Place tidak ditemukan'
-      });
-    }
-
-    // Check if another place with same name exists (excluding current place)
-    if (name && name !== place.name) {
-      const existingPlace = await Place.findOne({
-        where: {
-          name: {
-            [Op.iLike]: name
-          },
-          id: {
-            [Op.ne]: id
-          }
-        }
-      });
-
-      if (existingPlace) {
-        return res.status(409).json({
-          success: false,
-          message: 'Place dengan nama tersebut sudah ada'
-        });
-      }
-    }
-
-    // Update place
-    const updatedPlace = await place.update({
-      name: name || place.name,
-      description: description !== undefined ? description : place.description,
-      latitude: latitude !== undefined ? latitude : place.latitude,
-      longitude: longitude !== undefined ? longitude : place.longitude,
-      imageUrls: imageUrls !== undefined ? imageUrls : place.imageUrls,
-      coinReward: coinReward !== undefined ? coinReward : place.coinReward,
-      expReward: expReward !== undefined ? expReward : place.expReward,
-      minPrice: minPrice !== undefined ? minPrice : place.minPrice,
-      maxPrice: maxPrice !== undefined ? maxPrice : place.maxPrice,
-      status: status !== undefined ? status : place.status,
-      partnershipStatus: partnershipStatus !== undefined ? partnershipStatus : place.partnershipStatus,
-      additionalInfo: additionalInfo !== undefined ? additionalInfo : place.additionalInfo
+    const reviews = await PlaceService.getReviewsByPlaceId(validation.id, {
+      page,
+      limit,
+      sort_by: sortBy,
+      sort_order: sortOrder
     });
 
     res.status(200).json({
       success: true,
-      message: 'Place berhasil diupdate',
-      data: {
-        place: updatedPlace
+      message: 'Reviews retrieved successfully',
+      data: reviews.data,
+      pagination: {
+        current_page: reviews.current_page,
+        per_page: reviews.per_page,
+        total: reviews.total,
+        last_page: reviews.last_page
       }
     });
   } catch (error) {
-    console.error('Update place error:', error);
+    console.error('Error in getReviewsByPlaceId:', error);
     res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan server'
-    });
-  }
-};
-
-/**
- * Delete place
- * @route DELETE /api/v1/places/:id
- * @access Private (Admin only)
- */
-const deletePlace = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Find place
-    const place = await Place.findByPk(id);
-
-    if (!place) {
-      return res.status(404).json({
-        success: false,
-        message: 'Place tidak ditemukan'
-      });
-    }
-
-    // Delete place
-    await place.destroy();
-
-    res.status(200).json({
-      success: true,
-      message: 'Place berhasil dihapus'
-    });
-  } catch (error) {
-    console.error('Delete place error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server'
-    });
-  }
-};
-
-/**
- * Search places by name or description
- * @route GET /api/v1/places/search
- * @access Public
- */
-const searchPlaces = async (req, res) => {
-  try {
-    const { q, limit = 10 } = req.query;
-
-    if (!q) {
-      return res.status(400).json({
-        success: false,
-        message: 'Query parameter diperlukan'
-      });
-    }
-
-    const places = await Place.findAll({
-      where: {
-        [Op.or]: [
-          {
-            name: {
-              [Op.iLike]: `%${q}%`
-            }
-          },
-          {
-            description: {
-              [Op.iLike]: `%${q}%`
-            }
-          }
-        ],
-        status: true
-      },
-      limit: parseInt(limit),
-      order: [['name', 'ASC']]
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Search completed successfully',
-      data: {
-        places,
-        query: q,
-        count: places.length
-      }
-    });
-  } catch (error) {
-    console.error('Search places error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server'
-    });
-  }
-};
-
-/**
- * Get nearby places
- * @route GET /api/v1/places/nearby
- * @access Public
- */
-const getNearbyPlaces = async (req, res) => {
-  try {
-    const { latitude, longitude, radius = 5, limit = 10 } = req.query;
-
-    if (!latitude || !longitude) {
-      return res.status(400).json({
-        success: false,
-        message: 'Latitude dan longitude diperlukan'
-      });
-    }
-
-    const places = await Place.findNearby(
-      parseFloat(latitude),
-      parseFloat(longitude),
-      parseFloat(radius)
-    );
-
-    const limitedPlaces = places.slice(0, parseInt(limit));
-
-    res.status(200).json({
-      success: true,
-      message: 'Nearby places retrieved successfully',
-      data: {
-        places: limitedPlaces,
-        location: {
-          latitude: parseFloat(latitude),
-          longitude: parseFloat(longitude)
-        },
-        radius: parseFloat(radius),
-        count: limitedPlaces.length
-      }
-    });
-  } catch (error) {
-    console.error('Get nearby places error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server'
+      message: 'Failed to retrieve reviews',
+      error: error.message
     });
   }
 };
 
 module.exports = {
-  getAllPlaces,
-  getPlaceById,
-  createPlace,
-  updatePlace,
-  deletePlace,
-  searchPlaces,
-  getNearbyPlaces
+  getWithFilters,
+  getById,
+  getReviewsByPlaceId,
 };

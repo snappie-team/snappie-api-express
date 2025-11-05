@@ -1,4 +1,5 @@
 const { body, validationResult } = require('express-validator');
+const { validateId, validatePagination, validateCoordinates } = require('../utils/validation');
 
 /**
  * Handle validation errors
@@ -267,11 +268,70 @@ const validateUpdatePlace = [
   handleValidationErrors
 ];
 
+/**
+ * Middleware to validate ID parameter
+ * @param {string} paramName - Name of the parameter to validate (default: 'id')
+ */
+const validateIdParam = (paramName = 'id') => {
+  return (req, res, next) => {
+    const id = req.params[paramName];
+    const validation = validateId(id);
+    
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.error
+      });
+    }
+    
+    // Replace the string ID with parsed integer
+    req.params[paramName] = validation.id;
+    next();
+  };
+};
+
+/**
+ * Middleware to validate user ID parameter
+ */
+const validateUserIdParam = validateIdParam('user_id');
+
+/**
+ * Middleware to validate place ID parameter
+ */
+const validatePlaceIdParam = validateIdParam('place_id');
+
+/**
+ * Middleware to validate post ID parameter
+ */
+const validatePostIdParam = validateIdParam('post_id');
+
+/**
+ * Middleware to validate article ID parameter
+ */
+const validateArticleIdParam = validateIdParam('article_id');
+
+/**
+ * Middleware to validate pagination query parameters
+ */
+const validatePaginationQuery = (req, res, next) => {
+  const { page, limit, offset } = validatePagination(req.query);
+  
+  // Add validated pagination to request object
+  req.pagination = { page, limit, offset };
+  next();
+};
+
 module.exports = {
   validateRegister,
   validateLogin,
   validateProfileUpdate,
   validateCreatePlace,
   validateUpdatePlace,
-  handleValidationErrors
+  handleValidationErrors,
+  validateIdParam,
+  validateUserIdParam,
+  validatePlaceIdParam,
+  validatePostIdParam,
+  validateArticleIdParam,
+  validatePaginationQuery
 };

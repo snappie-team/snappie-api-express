@@ -3,38 +3,13 @@ const router = express.Router();
 
 // Import controllers
 const {
-  getAllPlaces,
-  getPlaceById,
-  createPlace,
-  updatePlace,
-  deletePlace,
-  searchPlaces,
-  getNearbyPlaces
+  getWithFilters,
+  getById,
+  getReviewsByPlaceId,
 } = require('../controllers/placeController');
 
 // Import middleware
 const { authenticate } = require('../middleware/auth');
-const {
-  validateCreatePlace,
-  validateUpdatePlace,
-  handleValidationErrors
-} = require('../middleware/validation');
-
-/**
- * Public Routes
- */
-
-// Get all places with pagination and filtering
-router.get('/', getAllPlaces);
-
-// Search places
-router.get('/search', searchPlaces);
-
-// Get nearby places
-router.get('/nearby', getNearbyPlaces);
-
-// Get place by ID
-router.get('/:id', getPlaceById);
 
 /**
  * Protected Routes (require authentication)
@@ -42,26 +17,12 @@ router.get('/:id', getPlaceById);
  * for create, update, and delete operations
  */
 
-// Create new place
-router.post('/',
-  authenticate,
-  validateCreatePlace,
-  handleValidationErrors,
-  createPlace
-);
+// Get all places with pagination and filtering
+router.get('/', authenticate, getWithFilters);
 
-// Update place
-router.put('/:id',
-  authenticate,
-  validateUpdatePlace,
-  handleValidationErrors,
-  updatePlace
-);
+// Get place by ID
+router.get('/id/:place_id', authenticate, getById);
 
-// Delete place
-router.delete('/:id',
-  authenticate,
-  deletePlace
-);
+router.get('/id/:place_id/reviews', authenticate, getReviewsByPlaceId);
 
 module.exports = router;
