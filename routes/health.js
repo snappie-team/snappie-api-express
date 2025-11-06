@@ -32,6 +32,7 @@ router.get('/', async (req, res) => {
       environment: process.env.NODE_ENV,
       database: {
         status: dbStatus,
+        connection: process.env.DB_CONNECTION,
       },
     };
     

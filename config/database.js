@@ -7,8 +7,8 @@ const sequelize = new Sequelize(
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 5432,
-    dialect: 'postgres',
+    port: process.env.DB_PORT || 3306,
+    dialect: process.env.DB_CONNECTION,
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
       max: 5,
@@ -28,13 +28,13 @@ const sequelize = new Sequelize(
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ PostgreSQL connected successfully');
+    console.log(`✅ ${process.env.DB_CONNECTION} connected successfully`);
     
     // Use existing database structure without syncing
     // await sequelize.sync({ alter: true });
     console.log('✅ Using existing database structure');
   } catch (error) {
-    console.error('❌ Unable to connect to PostgreSQL database:', error.message);
+    console.error(`❌ Unable to connect to ${process.env.DB_CONNECTION} database:`, error.message);
     console.log('⚠️  Server will continue running without database connection');
     // Don't exit the process, allow server to run for endpoint testing
     // process.exit(1);
