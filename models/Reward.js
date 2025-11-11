@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
+const { parseAdditionalInfo } = require('../utils/jsonHelper');
 
 const Reward = sequelize.define('Reward', {
   id: {
@@ -49,7 +50,11 @@ const Reward = sequelize.define('Reward', {
   },
   additional_info: {
     type: DataTypes.JSON,
-    allowNull: true
+    allowNull: true,
+    get() {
+      const rawValue = this.getDataValue('additional_info');
+      return parseAdditionalInfo(rawValue);
+    }
   }
 }, {
   tableName: 'rewards',

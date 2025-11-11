@@ -1,5 +1,6 @@
 const { DataTypes, Model } = require("sequelize");
 const { sequelize } = require("../config/database");
+const { parseAdditionalInfo } = require('../utils/jsonHelper');
 
 class Place extends Model {
   // Instance methods
@@ -119,7 +120,7 @@ Place.init(
       },
     },
     imageUrls: {
-      type: DataTypes.JSONB,
+      type: DataTypes.JSON,
       allowNull: true,
       defaultValue: [],
       field: "image_urls",
@@ -193,30 +194,13 @@ Place.init(
       field: "partnership_status",
     },
     additionalInfo: {
-      type: DataTypes.JSONB,
+      type: DataTypes.JSON,
       allowNull: true,
-      defaultValue: {
-        placeDetail: {
-          shortDescription: "",
-          address: "",
-          openingHours: "",
-          openingDays: [],
-          contactNumber: "",
-          website: "",
-        },
-        placeValue: [],
-        foodType: [],
-        placeAttributes: {
-          menu: [],
-          facility: [],
-          parking: [],
-          capacity: [],
-          accessibility: [],
-          payment: [],
-          service: [],
-        },
-      },
       field: "additional_info",
+      get() {
+        const rawValue = this.getDataValue('additionalInfo');
+        return parseAdditionalInfo(rawValue);
+      }
     },
   },
   {

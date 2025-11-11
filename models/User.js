@@ -1,5 +1,6 @@
 const { DataTypes, Model } = require('sequelize');
 const { sequelize } = require('../config/database');
+const { parseAdditionalInfo } = require('../utils/jsonHelper');
 
 class User extends Model {
   // Instance methods
@@ -132,9 +133,13 @@ User.init({
     field: 'last_login_at'
   },
   additionalInfo: {
-    type: DataTypes.JSONB,
+    type: DataTypes.JSON,
     allowNull: true,
-    field: 'additional_info'
+    field: 'additional_info',
+    get() {
+      const rawValue = this.getDataValue('additionalInfo');
+      return parseAdditionalInfo(rawValue);
+    },
   }
 }, {
   sequelize,

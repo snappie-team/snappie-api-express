@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
+const { parseAdditionalInfo } = require('../utils/jsonHelper');
 
 const UserChallenge = sequelize.define('UserChallenge', {
   id: {
@@ -29,7 +30,11 @@ const UserChallenge = sequelize.define('UserChallenge', {
   },
   additional_info: {
     type: DataTypes.JSON,
-    allowNull: true
+    allowNull: true,
+    get() {
+      const rawValue = this.getDataValue('additional_info');
+      return parseAdditionalInfo(rawValue);
+    }
   }
 }, {
   tableName: 'user_challenges',
